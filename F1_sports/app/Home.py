@@ -110,57 +110,60 @@ if st.button(f"🚀 Bootstrap {selected_year} Intelligence Engine", use_containe
     progress_bar = st.progress(0)
     status_text = st.empty()
     
-    def update_progress(current, total, message):
+    # Placeholder for live training chart
+    st.subheader("📊 Real-time Training Monitor")
+    training_chart = st.empty()
+    
+    def update_ingestion_progress(current, total, message):
         percent = int((current / total) * 100)
         progress_bar.progress(percent)
         status_text.markdown(f"**{message}** ({percent}%)")
 
+    def update_training_progress(iteration, total, history):
+        percent = int((iteration / total) * 100)
+        progress_bar.progress(percent)
+        status_text.markdown(f"**AI Training Round {iteration}/{total}...**")
+        
+        # Update live chart
+        hist_df = pd.DataFrame({
+            'Training Loss': history['train'],
+            'Validation Loss': history['test']
+        })
+        training_chart.line_chart(hist_df)
+
     with st.spinner(f"Establishing connection to F1 Data Lake..."):
         ingestion = TelemetryIngestion()
-        # FastF1 is smart with full event names
         path = ingestion.fetch_session_data(
             selected_year, 
             selected_race, 
             'R', 
-            progress_callback=update_progress
+            progress_callback=update_ingestion_progress
         )
         
         if path:
-            status_text.markdown("✅ **Data Lake Synchronized.** Training Predictive Core...")
             predictor = RacePredictor()
-            metrics = predictor.train(str(path))
+            results = predictor.train_visual(str(path), progress_ui_callback=update_training_progress)
             
-            if metrics:
+            if results:
                 st.balloons()
                 st.session_state['last_loaded_file'] = path.name
                 
                 st.markdown("---")
-                st.header("📈 Engine Analytics")
+                st.header("📈 Strategy Engine Analytics")
                 
                 # Metrics Row
                 m_col1, m_col2, m_col3 = st.columns(3)
-                m_col1.metric("Model Confidence (R²)", f"{metrics['r2_score']:.4f}")
-                m_col2.metric("Precision (RMSE)", f"{metrics['test_rmse'][-1]:.4f}s")
-                m_col3.metric("Dataset Size", f"{len(pd.read_parquet(path))} rows")
+                m_col1.metric("Final Model Precision (RMSE)", f"{results['history']['test'][-1]:.4f}s")
+                m_col2.metric("Training Iterations", len(results['history']['train']))
+                m_col3.metric("Dataset Size", f"{len(pd.read_parquet(path))} laps")
 
-                # Charts Row
-                c_col1, c_col2 = st.columns(2)
-                
-                with c_col1:
-                    st.subheader("Learning Convergence")
-                    loss_df = pd.DataFrame({
-                        'Train Error': metrics['train_rmse'],
-                        'Validation Error': metrics['test_rmse']
-                    })
-                    st.line_chart(loss_df)
-
-                with c_col2:
-                    st.subheader("Strategic Feature Impact")
-                    imp_df = pd.DataFrame({
-                        'Feature': list(metrics['importance'].keys()),
-                        'Impact': list(metrics['importance'].values())
-                    }).sort_values(by='Impact', ascending=True)
-                    st.bar_chart(imp_df.set_index('Feature'))
+                # Final Features
+                st.subheader("Strategic Feature Impact")
+                imp_df = pd.DataFrame({
+                    'Feature': list(results['importance'].keys()),
+                    'Impact Score': list(results['importance'].values())
+                }).sort_values(by='Impact Score', ascending=True)
+                st.bar_chart(imp_df.set_index('Feature'))
 
                 st.success("Intelligence Engine is fully synchronized and operational.")
         else:

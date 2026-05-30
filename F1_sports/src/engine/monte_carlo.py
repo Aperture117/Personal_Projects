@@ -19,25 +19,30 @@ class MonteCarloSimulator:
         Runs Monte Carlo simulations to calculate probabilities.
         Returns a dictionary of {Driver: {'win_prob': float, 'podium_prob': float}}
         """
-        logger.info(f"Running {self.num_simulations} Monte Carlo simulations for {remaining_laps} remaining laps...")
-        
-        drivers = current_lap_data['Driver'].unique()
+        if remaining_laps <= 0 or current_lap_data.empty:
+            return {}
+            
+        # Clean data for simulation: MUST have non-zero lap times
+        df_sim = current_lap_data[(current_lap_data['LapTime'] > 0) & (current_lap_data['Driver'].notna())].copy()
+        if df_sim.empty:
+            return {}
+            
+        drivers = df_sim['Driver'].values
+        current_paces = df_sim['LapTime'].values
         n_drivers = len(drivers)
         
         # Initialize simulation matrix: shape (num_simulations, n_drivers)
-        # Represents total race time from this point forward
         simulated_times = np.zeros((self.num_simulations, n_drivers))
         
-        # Base predictions for next lap (simplified for MVP speed)
-        # In a full model, this iterates lap-by-lap, compounding degradation
-        base_paces = np.random.uniform(90.0, 93.0, n_drivers) # Mocked base pace in seconds
-        
         for sim in range(self.num_simulations):
-            # Inject Gaussian noise to simulate traffic, mistakes, and degradation variance
-            variance = np.random.normal(loc=0.0, scale=0.5, size=n_drivers) * remaining_laps
+            # Inject Gaussian noise. Scale variance by remaining laps (uncertainty grows over time)
+            # Base variance is e.g. 0.3 seconds per lap
+            variance = np.random.normal(loc=0.0, scale=0.3, size=n_drivers) * remaining_laps
             
-            # Simulated total time = (Base Pace * Remaining Laps) + Variance + Current Gap
-            total_time = (base_paces * remaining_laps) + variance
+            # Simulated total time = (Current Pace * Remaining Laps) + Cumulative Variance
+            # In a true system, we'd also add current cumulative race time (gap to leader).
+            # For this visualization, projecting forward pace is sufficient.
+            total_time = (current_paces * remaining_laps) + variance
             simulated_times[sim] = total_time
             
         # Analyze Results
@@ -45,16 +50,15 @@ class MonteCarloSimulator:
         podium_counts = {driver: 0 for driver in drivers}
         
         for sim in range(self.num_simulations):
-            # Sort drivers by their simulated total time in this iteration
             sorted_indices = np.argsort(simulated_times[sim])
             winner = drivers[sorted_indices[0]]
-            second = drivers[sorted_indices[1]]
-            third = drivers[sorted_indices[2]]
             
             win_counts[winner] += 1
             podium_counts[winner] += 1
-            podium_counts[second] += 1
-            podium_counts[third] += 1
+            if n_drivers > 1:
+                podium_counts[drivers[sorted_indices[1]]] += 1
+            if n_drivers > 2:
+                podium_counts[drivers[sorted_indices[2]]] += 1
             
         # Calculate Probabilities
         probabilities = {}
