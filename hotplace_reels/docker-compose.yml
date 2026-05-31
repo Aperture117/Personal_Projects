@@ -1,0 +1,15 @@
+services:
+  app:
+    build: .
+    container_name: hotplace_reels_app
+    volumes:
+      - ./data_storage:/app/data_storage
+      - ./logs:/app/logs
+      - .env:/app/.env
+    environment:
+      - OLLAMA_HOST=http://host.docker.internal:11434
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "8000:8000"
+    restart: always

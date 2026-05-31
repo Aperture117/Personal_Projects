@@ -1,0 +1,12 @@
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+env/
+.env
+*.db
+*.mp4
+data_storage/
+logs/
+temp_media/
+.vscode/
