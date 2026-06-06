@@ -17,22 +17,27 @@ class Settings(BaseSettings):
     ALLOWED_TELEGRAM_USER_IDS: str = os.getenv("ALLOWED_TELEGRAM_USER_IDS", "")
     
     # LLM
-    LLM_MODEL: str = os.getenv("LLM_MODEL", "gemma2:9b")
+    LLM_MODEL: str = os.getenv("LLM_MODEL", "gemma2:2b")
     OLLAMA_HOST: str = os.getenv("OLLAMA_HOST", "http://localhost:11434")
     
-    # Social Media (Optional)
+    # Social Media
     INSTAGRAM_USER_ID: str = os.getenv("INSTAGRAM_USER_ID", "")
     INSTAGRAM_ACCESS_TOKEN: str = os.getenv("INSTAGRAM_ACCESS_TOKEN", "")
     
-    # Paths & DB
-    DB_PATH: str = str(PROJECT_ROOT / "data_storage" / "hotplace.db")
-    LOG_FILE: str = str(PROJECT_ROOT / "logs" / "app.log")
+    # Paths (New Batch OS Structure)
+    DATA_ROOT: Path = PROJECT_ROOT / "data"
+    DB_PATH: str = str(DATA_ROOT / "db" / "app.sqlite")
+    CACHE_DIR: str = str(DATA_ROOT / "cache")
+    RAW_DATA_DIR: str = str(DATA_ROOT / "raw")
+    DRAFTS_DIR: str = str(DATA_ROOT / "drafts")
+    RENDERS_DIR: str = str(DATA_ROOT / "renders")
+    LOGS_DIR: str = str(DATA_ROOT / "logs")
     
     # Scheduler
-    DAILY_CHECK_TIME: str = "10:00"
+    BATCH_INTERVAL_HOURS: int = 3
 
 settings = Settings()
 
-# Ensure directories
-os.makedirs(os.path.dirname(settings.DB_PATH), exist_ok=True)
-os.makedirs(os.path.dirname(settings.LOG_FILE), exist_ok=True)
+# Ensure critical directories exist
+for path in [settings.DB_PATH, settings.LOGS_DIR]:
+    os.makedirs(os.path.dirname(path), exist_ok=True)

@@ -1,0 +1,63 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "interval": 6
+            }
+          ]
+        }
+      },
+      "id": "1",
+      "name": "Trigger (Every 6h)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "position": [0, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://hotplace_reels_app:8000/agent/langgraph/run",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "niche",
+              "value": ""
+            }
+          ]
+        }
+      },
+      "id": "2",
+      "name": "LangGraph Engine",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [300, 300]
+    },
+    {
+      "parameters": {
+        "content": "## LangGraph Autonomous Pipeline\n\nOne API call triggers the entire 5-agent stateful workflow:\n1. Trend Scout (Discovery)\n2. Vision DNA (Analysis)\n3. Creative Architect (Content Swap)\n4. Visual Artisan (High-end Render)\n5. Social Strategist (Handoff to Telegram)",
+        "height": 260,
+        "width": 800
+      },
+      "id": "3",
+      "name": "System Guide",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [0, 100]
+    }
+  ],
+  "connections": {
+    "1": {
+      "main": [
+        [
+          {
+            "node": "2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

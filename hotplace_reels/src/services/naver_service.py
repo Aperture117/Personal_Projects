@@ -31,10 +31,28 @@ class NaverService:
 
     def search_images(self, query: str, display: int = 5) -> List[str]:
         """
-        Searches for images and returns a list of direct image URLs.
+        Searches for high-quality images and returns direct links.
         """
-        data = self._get("image", {"query": query, "display": display, "sort": "sim"})
+        # Improved query for better aesthetic results
+        search_query = f"{query} 맛집 감성"
+        data = self._get("image", {"query": search_query, "display": display, "sort": "sim", "filter": "large"})
         return [item['link'] for item in data.get("items", [])]
+
+    def get_place_details(self, query: str) -> Dict[str, Any]:
+        """
+        Get rich metadata for a place to display on cards.
+        """
+        data = self._get("local.json", {"query": query, "display": 1})
+        items = data.get("items", [])
+        if items:
+            item = items[0]
+            return {
+                "name": item['title'].replace("<b>", "").replace("</b>", ""),
+                "category": item['category'],
+                "address": item['roadAddress'],
+                "description": f"📍 {item['roadAddress']}\n⭐ 인기 핫플레이스"
+            }
+        return {"name": query, "category": "Place", "address": "", "description": "인기 핫플레이스"}
 
     def get_mention_counts(self, query: str) -> Dict[str, int]:
         blog_data = self._get("blog.json", {"query": query, "display": 1})

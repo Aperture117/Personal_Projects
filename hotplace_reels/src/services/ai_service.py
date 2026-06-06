@@ -1,16 +1,101 @@
 import ollama
 from src.core.config import settings
 import logging
+from google import genai
+from google.genai import types
+import json
+import os
 
 logger = logging.getLogger(__name__)
 
 class AIService:
     def __init__(self):
-        # Fallback to gemma2:2b if LLM_MODEL is not set properly
-        self.model = settings.LLM_MODEL if settings.LLM_MODEL else "gemma2:2b"
+        # Fallback to gemma4:e2b if LLM_MODEL is not set properly
+        self.model = settings.LLM_MODEL if settings.LLM_MODEL else "gemma4:e2b"
         self.client = ollama.Client(host=settings.OLLAMA_HOST)
+        
+        # Cloud Vision LLM via Google Gemini
+        self.genai_client = None
+        if os.getenv("GOOGLE_API_KEY"):
+            self.genai_client = genai.Client(api_key=os.getenv("GOOGLE_API_KEY"))
+
+    def analyze_visual_structure(self, image_path: str) -> dict:
+        """
+        Analyze an image using local Ollama (llama3.2-vision) to extract its visual layout.
+        Completely FREE and private.
+        """
+        # 1. Validation: Check if file exists
+        if not image_path or not os.path.exists(image_path):
+            logger.warning(f"⚠️ Image not found at {image_path}. Returning mock layout for testing.")
+            return self._get_mock_layout()
+
+        try:
+            # 2. Vision Analysis
+            response = self.client.generate(
+                model="llama3.2-vision",
+                prompt="""
+                Analyze this Instagram slide and extract its visual structure as JSON.
+                JSON structure:
+                {
+                  "background": "description of background scene",
+                  "layout_nodes": [{"type": "text", "position": "top/center/bottom", "size": "large/small", "content": "text content"}],
+                  "color_palette": ["#hex_bg", "#hex_text"],
+                  "font_style": "Bold Sans-serif / Serif / Handwritten",
+                  "text_content": "full text"
+                }
+                Return ONLY the raw JSON.
+                """,
+                images=[image_path],
+                format="json"
+            )
+            
+            return json.loads(response['response'])
+        except Exception as e:
+            logger.error(f"Local Vision Analysis Error (Ollama): {e}")
+            return self._get_mock_layout()
+
+    def _get_mock_layout(self):
+        return {
+            "background": "Minimalist aesthetic cafe interior",
+            "layout_nodes": [{"type": "text", "position": "center", "size": "large"}],
+            "color_palette": ["#FFFFFF", "#000000"],
+            "font_style": "Bold Sans-serif"
+        }
+
+    def plan_visual_replication(self, viral_layout: dict, new_topic: str) -> dict:
+        """
+        Create a prompt for image generation that mimics the viral layout but with new content.
+        """
+        prompt = f"""
+        당신은 최고의 인스타그램 비주얼 디자이너입니다.
+        아래의 [레퍼런스 레이아웃]을 100% 복제하여 [새로운 주제]에 맞는 이미지를 기획해주세요.
+        
+        [레퍼런스 레이아웃]
+        - 배경: {viral_layout.get('background')}
+        - 폰트 스타일: {viral_layout.get('font_style')}
+        - 색감: {viral_layout.get('color_palette')}
+        - 구성 요소: {viral_layout.get('layout_nodes')}
+        
+        [새로운 주제]
+        - {new_topic}
+        
+        [결과물 형식]
+        1. Image Generation Prompt: 레퍼런스의 구도와 색감을 유지하면서 {new_topic}을 표현하는 영어 프롬프트.
+        2. Overlay Text: 레퍼런스의 위치에 들어갈 새로운 텍스트 내용 (한국어).
+        3. Visual Instructions: 제작 시 주의할 점 (폰트 크기, 여백 등).
+        
+        JSON으로 답변해주세요.
+        """
+        
+        try:
+            response = self.client.generate(model=self.model, prompt=prompt, format="json")
+            return json.loads(response['response'])
+        except Exception as e:
+            logger.error(f"Planning Error: {e}")
+            return {"error": "Planning failed"}
 
     def generate_content(self, prompt_type: str, place_name: str, context: str, style: str = "viral_list") -> str:
+        # (Existing logic remains)
         # Define Viral Templates
         templates = {
             "viral_list": f"주제: {place_name}을 포함한 핫플 리스트. 스타일: '저장 안 하면 손해' 느낌의 정보 전달형.",
